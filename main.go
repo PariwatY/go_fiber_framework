@@ -4,14 +4,46 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
 )
 
 func main() {
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		Prefork: false,
+	})
+
+	//Middleware
+	app.Use("/hello", func(c *fiber.Ctx) error {
+		c.Locals("name", "bond")
+		// fmt.Println("Before")
+		err := c.Next()
+		// fmt.Println("After")
+		return err
+	})
+
+	//Middleware RequestID
+	app.Use(requestid.New())
+
+	//Middleware Cors
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "*",
+		AllowMethods:     "GET,POST,HEAD,PUT,DELETE,PATCH",
+		AllowHeaders:     "",
+		AllowCredentials: false,
+	}))
+
+	//Middleware Loggers
+	app.Use(logger.New(logger.Config{
+		TimeZone: "Asia/Bangkok",
+	}))
 
 	//GET
 	app.Get("/hello", func(c *fiber.Ctx) error {
-		return c.SendString("hello")
+		name := c.Locals("name")
+		// fmt.Println("Hello")
+		return c.SendString(fmt.Sprintf("name: %v", name))
 	})
 
 	//POST
@@ -48,5 +80,31 @@ func main() {
 		return c.SendString("name: " + name + ", surname: " + surname)
 	})
 
+	//Query2
+	app.Get("/query2", func(c *fiber.Ctx) error {
+		person := Person{}
+		c.QueryParser(&person)
+		return c.JSON(person)
+	})
+
+	//Wildcard
+	app.Get("/wildcards/*", func(c *fiber.Ctx) error {
+		wildcard := c.Params("*")
+		return c.SendString(wildcard)
+	})
+
+	//Static File
+	app.Static("/", "./wwwroot")
+
+	//NewError
+	app.Get("/error", func(c *fiber.Ctx) error {
+		return fiber.NewError(fiber.ErrForbidden.Code)
+	})
+
 	app.Listen(":8081")
+}
+
+type Person struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
 }
